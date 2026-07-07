@@ -19,7 +19,7 @@
       "@traderdaddy/sdk": ["../traderdaddy-sdk/src/index.ts"],
       "@traderdaddy/sdk/mock": ["../traderdaddy-sdk/src/mock/index.ts"]
     },
-    "types": ["webextension-polyfill"]
+    "types": ["webextension-polyfill", "node"]
   },
   "include": ["src", "tests", "scripts"]
 }

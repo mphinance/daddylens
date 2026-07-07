@@ -16,7 +16,7 @@ build follows; reconcile exact SDK import names/types once the SDK is published.
 | 1 | Detection | `$TICKER` cashtags on **all** sites; **bare uppercase** symbols opt-in per-domain, allowlist ships with X, Reddit, StockTwits, Substack |
 | 2 | Trigger | **Click/tap** opens popover; hover is an opt-in toggle |
 | 3 | No-key UX | **Demo mode** using `@traderdaddy/sdk/mock`, with a persistent **DEMO** watermark on every popover |
-| 4 | Fetching | **Lazy** — fetch only when a symbol's popover is opened. Per-symbol cache TTL **5 min** (worker-owned; the client has no cache). UA fetched market-wide once and filtered per symbol |
+| 4 | Fetching | **Lazy** — fetch only when a symbol's popover is opened. Caching + 429 backoff come from the SDK (`cache: true`); worker adds only in-flight dedupe. UA ticker-filtered per symbol |
 | 5 | Target | **Chrome MV3 first**; Firefox via `webextension-polyfill`, kept clean from line one so Firefox is a packaging step |
 
 ---
@@ -259,10 +259,10 @@ Stored in `browser.storage.local`. Defaults applied on first run.
    DaddyBoard dark/glass styling, DEMO watermark + CTA.
 4. **Options page** — key entry (masked), demo toggle, trigger toggle, per-domain +
    bare-symbol allowlist editor. Settings round-trip through storage.
-5. **Background worker (live)** — `callTool` wiring, live/mock switch on
-   `config.mockMode`, worker-owned `cache.ts` (5 min) + `backoff.ts` + `dedupe.ts`,
-   market-wide UA fetch + per-symbol filter, `Promise.allSettled` fan-out of the
-   three per-ticker calls, 429 → "cooling down." Live key path end-to-end.
+5. **Background worker (live)** — `TraderDaddy` client (live vs `mock:true`),
+   SDK cache + backoff, worker-side in-flight dedupe, `Promise.allSettled` fan-out
+   of the four per-symbol calls with UA row-filtered by ticker, 429 → "cooling
+   down." Live key path end-to-end.
 6. **Package + list** — Chrome Web Store + Firefox AMO builds, screenshots,
    listing copy, privacy note (key stays local).
 
