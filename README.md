@@ -105,22 +105,24 @@ No-key users get demo mode so the extension is still useful/installable pre-purc
 ## Development
 
 ```bash
-npm run build          # bundle to dist/chrome
-npm run build:firefox  # bundle to dist/firefox
-npm run watch          # rebuild on change (Chrome)
-npm run typecheck      # tsc --noEmit
-npm test               # detector unit tests
+npm run build            # bundle to dist/chrome
+npm run build:firefox    # bundle to dist/firefox
+npm run watch            # rebuild on change (Chrome)
+npm run package          # build + zip → dist/daddylens-chrome-<version>.zip
+npm run icons            # regenerate assets/icon-*.png (Pillow)
+npm run typecheck        # tsc --noEmit
+npm test                 # detector unit tests
 ```
 
 Source lives in `src/` (`content/`, `background/`, `options/`, `shared/`); the
 build (`scripts/build.mjs`, esbuild) merges `src/manifest.base.json` per target.
-Rate-limit discipline is deliberate: symbols are only *marked* on scan — a busy
-feed costs **zero** API calls until you actually open a popover, and the SDK
-caches per tool. Full design in [SPEC.md](./SPEC.md).
+`npm run package` produces a Web-Store-ready zip (dependency-free — no `zip`
+binary needed). Rate-limit discipline is deliberate: symbols are only *marked*
+on scan — a busy feed costs **zero** API calls until you actually open a
+popover, and the SDK caches per tool. Full design in [SPEC.md](./SPEC.md).
 
-### Not done yet (milestone 6)
+### Remaining before store submission
 
-- Extension icons (`assets/icon-{16,48,128}.png`) + restore the manifest `icons`
-  block before store packaging.
 - Swap the `file:../traderdaddy-sdk` dep + esbuild alias for the published
   `@traderdaddy/sdk` npm package once it's on the registry.
+- Store listing: screenshots + copy for Chrome Web Store / Firefox AMO.

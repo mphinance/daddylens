@@ -8,6 +8,9 @@
     "build": "node scripts/build.mjs",
     "build:firefox": "node scripts/build.mjs --firefox",
     "watch": "node scripts/build.mjs --watch",
+    "icons": "python3 scripts/make-icons.py",
+    "package": "npm run build && node scripts/package.mjs",
+    "package:firefox": "npm run build:firefox && node scripts/package.mjs --firefox",
     "typecheck": "tsc --noEmit",
     "test": "node --test --import tsx tests/*.test.ts"
   },

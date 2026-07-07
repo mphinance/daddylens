@@ -73,7 +73,22 @@ export async function fetchCards(symbol: string, settings: Settings): Promise<Fe
       : null,
   };
 
+  // Live mode: if every call failed for a non-rate-limit reason, it's almost
+  // always a bad/expired key. Surface that instead of four silent "n/a" cards.
+  const allFailed = [ua, gex, pc, iv].every((r) => r.status === 'rejected');
+  if (!td.mock && allFailed && !cooling) {
+    throw new AuthLikelyError();
+  }
+
   return { cards, demo: td.mock, cooling };
+}
+
+/** Raised when every live call fails — surfaced as a "check your key" prompt. */
+export class AuthLikelyError extends Error {
+  constructor() {
+    super('Requests failed — check that your API key is valid in DaddyLens settings.');
+    this.name = 'AuthLikelyError';
+  }
 }
 
 export { RateLimitError, MissingApiKeyError };
