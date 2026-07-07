@@ -23,44 +23,40 @@ build follows; reconcile exact SDK import names/types once the SDK is published.
 
 ## 2. Interface contract with `@traderdaddy/sdk`
 
-Mirrors the **DaddyBoard** shape the SDK is extracted from (`src/mcpClient.js`).
-The client is a **flat `callTool(name, args)`** function plus a `RateLimitError`
-class — *not* a `client.getX()` object. Tool names are the raw snake_case MCP
-tool names. DaddyLens consumes it only in the background worker.
+Uses the **published `@traderdaddy/sdk` v0.1** (`TraderDaddy` class). The SDK
+wraps a `Transport` (live `HttpTransport` / keyless `MockTransport`) with the two
+behaviours DaddyBoard proved out — **per-tool TTL cache** and **429 backoff** —
+so DaddyLens does NOT hand-roll either. Isomorphic; bundles clean for MV3.
+Consumed only in the background worker.
 
 ```ts
-import { callTool, RateLimitError } from "@traderdaddy/sdk";
+import { TraderDaddy, RateLimitError, MissingApiKeyError } from "@traderdaddy/sdk";
 
-// Config is passed in (browser-safe) — NOT loaded from a file like DaddyBoard's
-// config.js (which uses node fs/path and is not MV3-safe). The worker builds it
-// from browser.storage.local:
-//   { apiKey: "td_live_…", baseUrl: "https://api.traderdaddy.pro" }
-
-// One stateless POST to /api/v1/mcp per call (tools/call, no initialize).
-// Returns result.content[0].text, JSON.parsed. 429 / JSON-RPC -32000 → RateLimitError.
+// Live: user's own key (from storage.local); cache on = per-tool TTLs.
+const td = new TraderDaddy({ apiKey, baseUrl, cache: true });
+// Keyless demo: identical types, MockTransport serves fixtures.
+const demo = new TraderDaddy({ mock: true });   // td.mock === true
 ```
 
-### Tool calls DaddyLens makes (note the arg-name asymmetry)
+### Typed methods DaddyLens calls (one per card)
 
-| Tool | Args | Scope | DaddyLens use |
-|------|------|-------|---------------|
-| `get_unusual_activity` | `{ limit }` | **market-wide** | Fetch **once**, cache 5 min, **filter rows by clicked `ticker`** |
-| `get_gex_ticker` | `{ symbol }` | per-ticker | Gamma bias card |
-| `get_put_call_ratios` | `{ ticker }` ⚠ | per-ticker | Put/Call card (arg is `ticker`, not `symbol`) |
-| `get_iv_rank` | `{ symbol }` | per-ticker | IV Rank card |
+| Method | Signature | DaddyLens use |
+|--------|-----------|---------------|
+| `unusualActivity({ ticker, limit })` | ticker-filterable | Unusual card — worker still `filter`s rows by ticker (mock returns all) |
+| `gexTicker(symbol)` | per-ticker | Gamma bias card |
+| `putCallRatios(symbol)` | per-ticker (arg named `ticker` internally) | Put/Call card |
+| `ivRank(symbol)` | per-ticker | IV Rank card |
 
-Key consequences vs. the first draft:
+Key points:
 
-- **UA is market-wide.** One call serves every symbol on the page; the worker
-  filters `rows.filter(r => r.ticker === symbol)`. This slashes API load — a
-  50-symbol feed costs 1 UA call, not 50.
-- **No SDK-side cache.** DaddyBoard's caching lives in its *poller*, not the
-  client. DaddyLens must implement its **own per-symbol TTL cache + 429 backoff**
-  in the worker (§4 `cache.ts`, `dedupe.ts`).
-- **Mock is a mode, not a separate client.** DaddyBoard toggles `config.mockMode`
-  and reads `fixtures[toolName](args)` (each fixture keyed by the snake_case tool
-  name, a plain object or `fn(args)`). DaddyLens mirrors this: demo mode → read
-  bundled fixtures instead of calling `callTool`. Same fixtures the SDK ships.
+- **SDK owns cache + backoff.** `cache: true` gives per-tool TTLs; 429 →
+  `RateLimitError` is retried by the SDK's `withBackoff`. The worker only adds a
+  tiny in-flight dedupe so two popovers on the same symbol share one fetch.
+- **`unusualActivity` is ticker-filterable**, but the mock fixture is a static
+  list, so the worker filters `rows.filter(r => r.ticker === symbol)` to stay
+  correct in demo mode (and defensive in live).
+- **Demo = `mock: true`.** MockTransport serves the SDK's own typed fixtures — no
+  bundled fixtures in DaddyLens. `td.mock` flags the DEMO watermark.
 - The `td_live_` key **never** leaves the background worker; content scripts get
   only rendered card data, never the key.
 
@@ -114,11 +110,9 @@ daddylens/
 │  │  │  └─ cards.ts         # UA / GEX / P-C / IV card renderers
 │  │  └─ messaging.ts       # typed sendMessage wrappers
 │  ├─ background/
-│  │  ├─ index.ts           # worker entry; message router
-│  │  ├─ fetcher.ts         # live callTool vs mock fixtures (config.mockMode)
-│  │  ├─ cache.ts           # per-symbol TTL store (5 min) — worker owns caching
-│  │  ├─ backoff.ts         # 429/RateLimitError exp backoff (base 2s, cap 60s)
-│  │  └─ dedupe.ts          # in-flight request coalescing per symbol
+│  │  ├─ index.ts           # worker entry; message router + in-flight dedupe
+│  │  └─ fetcher.ts         # TraderDaddy client (live/mock) + card distillation
+│  │                        #   (cache + backoff come from the SDK)
 │  ├─ options/
 │  │  ├─ options.html
 │  │  ├─ options.ts         # key entry, toggles, allowlist CRUD
@@ -207,15 +201,15 @@ type LensResponse = {
 ```
 
 On a `LENS_QUERY`, the worker:
-1. Serves from `cache.ts` if the symbol's cards are <5 min old.
-2. Otherwise fans out **three** per-ticker calls with `Promise.allSettled` —
-   `get_gex_ticker {symbol}`, `get_put_call_ratios {ticker}`, `get_iv_rank {symbol}` —
-   plus reads the **shared** market-wide `get_unusual_activity` result (fetched
-   once, its own 5-min cache) and filters rows to `symbol`.
-3. A partial failure renders the cards that succeeded and marks the rest
-   "unavailable" rather than failing the whole popover.
-4. `RateLimitError` → `backoff.ts` schedules a cooldown; the card set surfaces
-   "cooling down" and serves stale cache if present.
+1. Coalesces with any in-flight fetch for the same symbol (one-line dedupe map).
+2. Fans out **four** SDK calls with `Promise.allSettled` — `unusualActivity`,
+   `gexTicker`, `putCallRatios`, `ivRank`. The SDK serves cached results (per-tool
+   TTL) and retries 429s via its own backoff.
+3. Distils each response into its compact card; a partial failure renders the
+   cards that succeeded and leaves the rest `null` ("n/a") rather than failing
+   the whole popover.
+4. If any call surfaces `RateLimitError` (backoff exhausted), the response is
+   flagged `cooling: true` and the popover shows "cooling down…".
 
 ---
 
@@ -274,21 +268,18 @@ Stored in `browser.storage.local`. Defaults applied on first run.
 
 ---
 
-## 13. Open items to reconcile on SDK publish
+## 13. SDK integration status
 
-Locked to the DaddyBoard shape (§2); confirm on publish:
+Reconciled against the **published `@traderdaddy/sdk` v0.1** (commit `e649fe7`):
 
-- **Export names** — does the SDK re-export `callTool` + `RateLimitError`
-  as-is, or wrap them? DaddyLens imports whatever DaddyBoard's `mcpClient.js`
-  exposes.
-- **Config injection** — SDK must accept `{ apiKey, baseUrl }` as a param (not
-  DaddyBoard's file-loading `config.js`, which is Node-only / not MV3-safe).
-- **Fixtures export** — confirm the SDK ships `fixtures` keyed by snake_case tool
-  name (object or `fn(args)`), the same set DaddyBoard's `src/mock/fixtures.js`
-  uses, so demo mode reuses them.
-- **`get_unusual_activity` filtering** — confirm rows carry a `ticker` field to
-  filter on (they do in the fixture), and whether the tool *also* accepts a
-  ticker arg (would let us skip client-side filtering for niche symbols).
-- **MV3 bundling** — `mcpClient.js` core uses only global `fetch` /
-  `AbortController` / `setTimeout` (all MV3-safe). Verify the published SDK
-  carries **no** Node built-ins into the bundle. Milestone 1 confirms.
+- **Client** — `new TraderDaddy({ apiKey, baseUrl, cache })` live /
+  `{ mock: true }` demo. Typed method per tool. ✅ resolved.
+- **Cache + backoff** — provided by the SDK (`cache: true` → per-tool TTLs;
+  `withBackoff` on 429). DaddyLens no longer hand-rolls these. ✅ resolved.
+- **UA filtering** — rows carry `ticker`; `unusualActivity({ ticker })` filters
+  server-side, worker re-filters for demo-mode correctness. ✅ resolved.
+- **MV3 bundling** — SDK is isomorphic (native `fetch`, injectable). Bundled via
+  esbuild from the sibling checkout for now (`file:../traderdaddy-sdk`); switch to
+  the npm package once published. Verified by `npm run build`.
+- **Remaining** — pin the npm version + drop the esbuild alias when
+  `@traderdaddy/sdk` is on the registry.

@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "DaddyLens",
+  "version": "0.1.0",
+  "description": "Annotates $TICKERS on any website with live TraderDaddy Pro options flow, gamma, put/call, and IV rank.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://api.traderdaddy.pro/*"],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "action": {
+    "default_title": "DaddyLens settings"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

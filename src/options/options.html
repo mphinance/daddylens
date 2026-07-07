@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DaddyLens settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="head">
+      <h1>DaddyLens</h1>
+      <p class="sub">Options-flow lens for <b>$TICKERS</b> on any page. Powered by TraderDaddy Pro.</p>
+    </header>
+
+    <section class="card">
+      <h2>API key</h2>
+      <p class="hint">Paste your own <code>td_live_…</code> key. It's stored locally in this browser and only ever sent to <code>api.traderdaddy.pro</code> — never bundled or shared.</p>
+      <div class="row">
+        <input id="apiKey" type="password" placeholder="td_live_…" autocomplete="off" spellcheck="false" />
+        <button id="toggleKey" type="button" class="ghost">Show</button>
+      </div>
+      <label class="check">
+        <input id="demoMode" type="checkbox" />
+        <span>Demo mode (keyless — shows sample data)</span>
+      </label>
+      <p id="modeState" class="state"></p>
+    </section>
+
+    <section class="card">
+      <h2>Trigger</h2>
+      <label class="check"><input type="radio" name="trigger" value="click" /> <span>Click a ticker to open</span></label>
+      <label class="check"><input type="radio" name="trigger" value="hover" /> <span>Hover a ticker to open</span></label>
+    </section>
+
+    <section class="card">
+      <h2>Bare-symbol domains</h2>
+      <p class="hint">On these domains, bare uppercase words (e.g. <code>NVDA</code>) are treated as tickers too. Everywhere else, only <code>$</code>-cashtags are detected. One domain per line.</p>
+      <textarea id="bareDomains" rows="5" spellcheck="false"></textarea>
+    </section>
+
+    <section class="card">
+      <h2>Disabled domains</h2>
+      <p class="hint">DaddyLens does nothing on these domains. One per line.</p>
+      <textarea id="disabledDomains" rows="4" spellcheck="false"></textarea>
+    </section>
+
+    <div class="actions">
+      <button id="save" type="button" class="primary">Save</button>
+      <span id="saved" class="saved"></span>
+    </div>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

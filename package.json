@@ -1,0 +1,24 @@
+{
+  "name": "daddylens",
+  "version": "0.1.0",
+  "description": "Browser extension that annotates $TICKERS on any website with live TraderDaddy Pro options flow, gamma, put/call, and IV rank.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:firefox": "node scripts/build.mjs --firefox",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --import tsx tests/*.test.ts"
+  },
+  "dependencies": {
+    "@traderdaddy/sdk": "file:../traderdaddy-sdk",
+    "webextension-polyfill": "^0.12.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0",
+    "@types/webextension-polyfill": "^0.12.0"
+  }
+}

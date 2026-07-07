@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@traderdaddy/sdk": ["../traderdaddy-sdk/src/index.ts"],
+      "@traderdaddy/sdk/mock": ["../traderdaddy-sdk/src/mock/index.ts"]
+    },
+    "types": ["webextension-polyfill"]
+  },
+  "include": ["src", "tests", "scripts"]
+}
