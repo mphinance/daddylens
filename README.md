@@ -11,6 +11,9 @@ Part of the [TraderDaddy Pro](https://traderdaddy.pro) open-source family, along
 [DaddyBoard](https://github.com/mphinance/daddyboard), built on
 [`@traderdaddy/sdk`](https://github.com/mphinance/traderdaddy-sdk).
 
+**Customizing it?** Grab a prompt from [`PROMPTS.md`](PROMPTS.md) and paste it into
+Claude Code / Cursor. Agents working in this repo should read [`CLAUDE.md`](CLAUDE.md).
+
 ---
 
 ## Install
